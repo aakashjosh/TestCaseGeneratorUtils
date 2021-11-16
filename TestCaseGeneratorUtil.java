@@ -1,9 +1,8 @@
-import org.json.JSONObject;
-
 import java.util.*;
-
+import org.json.JSONObject;
+import org.json.JSONArray;
 public class TestCaseGeneratorUtil {
-    private static final boolean defaultIsKeyMandatoryFlag= true;
+    private static boolean defaultIsKeyMandatoryFlag= true, setDefaultValueOfKeys = true;
     private static final String STRING_OPERATION = new String("op");
     private static final String REPLACE_OPERATION = new String("replace");
     private static final String ADD_OPERATION = new String("add");
@@ -14,15 +13,22 @@ public class TestCaseGeneratorUtil {
     private Map<String, Boolean> isKeyMandatoryMap = null;
     private Map<String, List<String>> allValidValuesForKeyMap =null;
     TestCaseGeneratorUtil(String jsonString) throws Exception {
-        originalJsonStructure = new JSONObject(jsonString);
-        isKeyMandatoryMap = new HashMap<>();
-        defaultValueForKeyMap = new HashMap<>();
-        allValidValuesForKeyMap = new HashMap<>();
-        fullPathToValueMap= new HashMap<>();
-        initializeMaps(originalJsonStructure, "");
+        if(jsonString!= null && jsonString.length()>0){
+            originalJsonStructure = new JSONObject(jsonString);
+            isKeyMandatoryMap = new HashMap<>();
+            defaultValueForKeyMap = new HashMap<>();
+            allValidValuesForKeyMap = new HashMap<>();
+            fullPathToValueMap= new HashMap<>();
+            initializeMaps(originalJsonStructure, "");
+        }
         System.out.println("Maps Initialized");
     }
+    TestCaseGeneratorUtil(){
+
+    }
     public List<String> getAllTestCases(String prefix, String suffix){
+        if(this.allValidValuesForKeyMap.size() ==0 )
+            return Collections.emptyList();
         List<String> allTestCases = new ArrayList<>();
         getAllTestCases("", prefix, suffix, 0, new ArrayList<>(this.allValidValuesForKeyMap.keySet()), allTestCases);
         return allTestCases;
@@ -73,12 +79,24 @@ public class TestCaseGeneratorUtil {
                 initializeMaps(json.getJSONObject(key),currKeyAddress);
             else if(!isJsonArray){
                 this.isKeyMandatoryMap.put(currKeyAddress, defaultIsKeyMandatoryFlag);
-                this.defaultValueForKeyMap.put(currKeyAddress, value);
-                this.fullPathToValueMap.put(currKeyAddress, value);
-                this.allValidValuesForKeyMap.putIfAbsent(currKeyAddress, new ArrayList<>());
-                this.allValidValuesForKeyMap.get(currKeyAddress).add(value);
+                if(this.setDefaultValueOfKeys){
+                    this.defaultValueForKeyMap.put(currKeyAddress, value);
+                    this.fullPathToValueMap.put(currKeyAddress, value);
+                    this.allValidValuesForKeyMap.putIfAbsent(currKeyAddress, new ArrayList<>());
+                    this.allValidValuesForKeyMap.get(currKeyAddress).add(value);
+                }
             }
+            else if(isJsonArray){
+                JSONArray jsonArray = json.getJSONArray(key);
+                for(int i =0; i<jsonArray.length(); i++){
+                    JSONObject childJsonObject = jsonArray.optJSONObject(i);
+                    if (childJsonObject!=null) {
+                        initializeMaps(childJsonObject, getWholeAddressForKey(String.valueOf(i),parentAddress));
+                    }
 
+                }
+
+            }
         }
     }
     private String getWholeAddressForKey(String key, String parentAddress){
@@ -99,6 +117,8 @@ public class TestCaseGeneratorUtil {
     public Map<String, Boolean> getIsKeyMandatoryStatusForAllKeys(){
         return new HashMap<>(this.isKeyMandatoryMap);
     }
+    public boolean getDefaultValueOfKeysFlag(){return new Boolean(this.setDefaultValueOfKeys);}
+    public void changeDefaultValueOfKeysFlag(){this.setDefaultValueOfKeys = !this.setDefaultValueOfKeys;}
     public boolean changeIsMandatoryStatusForKey(String key){
         if(!this.isKeyMandatoryMap.containsKey(key))
             return false;
@@ -130,11 +150,11 @@ public class TestCaseGeneratorUtil {
 
     public void addTestCasesForAbsentKeys(List<String> keys, List<List<String>> possibleTestCases){
         int min = Math.min(keys.size(), possibleTestCases.size());
-       for(int i =0; i<min; i++){
-           if(!this.allValidValuesForKeyMap.containsKey(keys.get(i))){
-               this.allValidValuesForKeyMap.put(keys.get(i), new ArrayList<>());
-               this.allValidValuesForKeyMap.get(keys.get(i)).addAll(possibleTestCases.get(i));
-           }
-       }
+        for(int i =0; i<min; i++){
+            if(!this.allValidValuesForKeyMap.containsKey(keys.get(i))){
+                this.allValidValuesForKeyMap.put(keys.get(i), new ArrayList<>());
+                this.allValidValuesForKeyMap.get(keys.get(i)).addAll(possibleTestCases.get(i));
+            }
+        }
     }
 }
