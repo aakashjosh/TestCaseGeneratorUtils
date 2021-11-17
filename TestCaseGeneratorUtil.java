@@ -1,4 +1,7 @@
+
 import java.util.*;
+
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import org.json.JSONObject;
 import org.json.JSONArray;
 public class TestCaseGeneratorUtil {
@@ -9,9 +12,9 @@ public class TestCaseGeneratorUtil {
     private static final String PATH_OPERATION = new String("path");
     private static final String STRING_VALUE = new String("value");
     private JSONObject originalJsonStructure = null;
-    private Map<String, String> defaultValueForKeyMap  = null,fullPathToValueMap = null;
+    private Map<String, Object> defaultValueForKeyMap  = null,fullPathToValueMap = null;
     private Map<String, Boolean> isKeyMandatoryMap = null;
-    private Map<String, List<String>> allValidValuesForKeyMap =null;
+    private Map<String, List<Object>> allValidValuesForKeyMap =null;
     TestCaseGeneratorUtil(String jsonString) throws Exception {
         if(jsonString!= null && jsonString.length()>0){
             originalJsonStructure = new JSONObject(jsonString);
@@ -42,12 +45,14 @@ public class TestCaseGeneratorUtil {
         if(!this.allValidValuesForKeyMap.containsKey(keys.get(i)))
             getAllTestCases(curr, prefix, suffix, i+1, keys, allTestCases);
         if(this.isKeyMandatoryMap.containsKey(keys.get(i))){
-            for(String test : this.allValidValuesForKeyMap.get(keys.get(i))){
+            for(Object test : this.allValidValuesForKeyMap.get(keys.get(i))){
                 String newTestScenario = curr.length() ==0 ? "" : curr + ",\n";
                 newTestScenario +="{\n";
                 newTestScenario+="\""+STRING_OPERATION+"\" : \""+REPLACE_OPERATION+"\"";newTestScenario+=",\n";
                 newTestScenario+="\""+PATH_OPERATION+"\" : \""+(keys.get(i))+"\"";newTestScenario+=",\n";
-                newTestScenario+="\""+STRING_VALUE+"\" : \""+test+"\"";newTestScenario+="\n";
+                newTestScenario+="\""+STRING_VALUE+"\" : ";
+                newTestScenario+= test instanceof Boolean ? (Boolean) test : test instanceof Double ? (Double) test : test instanceof Long ? (Long) test : test instanceof Integer ? (Integer) test : "\""+test+"\"";
+                newTestScenario+="\n";
                 newTestScenario+="}";
                 getAllTestCases(newTestScenario, prefix, suffix, i+1, keys, allTestCases);
             }
@@ -55,7 +60,7 @@ public class TestCaseGeneratorUtil {
                 getAllTestCases(curr, prefix, suffix, i+1, keys, allTestCases);
         }
         else{
-            for(String test : this.allValidValuesForKeyMap.get(keys.get(i))){
+            for(Object test : this.allValidValuesForKeyMap.get(keys.get(i))){
                 String newTestScenario = curr.length() ==0 ? "" : curr + ",\n";
                 newTestScenario +="{\n";
                 newTestScenario+="\""+STRING_OPERATION+"\" : \""+ADD_OPERATION+"\"";newTestScenario+=",\n";
@@ -73,17 +78,18 @@ public class TestCaseGeneratorUtil {
         Set<String> keysForCurrentJsonObj = json.keySet();
         for(String key : keysForCurrentJsonObj){
             String currKeyAddress = getWholeAddressForKey(key, parentAddress);
-            String value = json.optString(key);
+
             boolean isJsonArray = json.optJSONArray(key)!=null;
             if(json.optJSONObject(key)!= null && !isJsonArray)
                 initializeMaps(json.getJSONObject(key),currKeyAddress);
             else if(!isJsonArray){
                 this.isKeyMandatoryMap.put(currKeyAddress, defaultIsKeyMandatoryFlag);
                 if(this.setDefaultValueOfKeys){
-                    this.defaultValueForKeyMap.put(currKeyAddress, value);
-                    this.fullPathToValueMap.put(currKeyAddress, value);
+                    Object val = json.get(key);
+                    this.defaultValueForKeyMap.put(currKeyAddress, val instanceof Boolean ? (Boolean)val : val instanceof Double ? (Double) val : val instanceof Long ? (Long)(val) : val instanceof Integer ? (Integer) val : val );
+                    this.fullPathToValueMap.put(currKeyAddress, val instanceof Boolean ? (Boolean)val : val instanceof Double ? (Double) val : val instanceof Long ? (Long)(val) : val instanceof Integer ? (Integer) val : val );
                     this.allValidValuesForKeyMap.putIfAbsent(currKeyAddress, new ArrayList<>());
-                    this.allValidValuesForKeyMap.get(currKeyAddress).add(value);
+                    this.allValidValuesForKeyMap.get(currKeyAddress).add(val instanceof Boolean ? (Boolean)val : val instanceof Double ? (Double) val : val instanceof Long ? (Long)(val) : val instanceof Integer ? (Integer) val : val);
                 }
             }
             else if(isJsonArray){
@@ -108,10 +114,10 @@ public class TestCaseGeneratorUtil {
     public String getOriginalJsonObjectString(){
         return new String(this.originalJsonStructure.toString());
     }
-    public Map<String, String> getAllKeysWithValues(){
+    public Map<String, Object> getAllKeysWithValues(){
         return new HashMap<>(this.fullPathToValueMap);
     }
-    public Map<String, String> getDefaultValueForKeys(){
+    public Map<String, Object> getDefaultValueForKeys(){
         return new HashMap<>(this.defaultValueForKeyMap);
     }
     public Map<String, Boolean> getIsKeyMandatoryStatusForAllKeys(){
@@ -125,13 +131,13 @@ public class TestCaseGeneratorUtil {
         this.isKeyMandatoryMap.put(key, !this.isKeyMandatoryMap.get(key));
         return true;
     }
-    public boolean addTestCasesForPresentKey(String key, List<String> possibleValues){
+    public boolean addTestCasesForPresentKey(String key, List<Object> possibleValues){
         if(!this.allValidValuesForKeyMap.containsKey(key))
             return false;
         this.allValidValuesForKeyMap.get(key).addAll(possibleValues);
         return true;
     }
-    public void addTestCasesForPresentKeys(List<String > keys, List<List<String>> possibleTestCases){
+    public void addTestCasesForPresentKeys(List<String > keys, List<List<Object>> possibleTestCases){
         int min = Math.min(keys.size(), possibleTestCases.size());
         for(int i =0; i<min; i++){
             if(this.allValidValuesForKeyMap.containsKey(keys.get(i))){
@@ -140,7 +146,7 @@ public class TestCaseGeneratorUtil {
         }
     }
 
-    public boolean addTestCasesForAbsentKey(String key, List<String> possibleValues){
+    public boolean addTestCasesForAbsentKey(String key, List<Object> possibleValues){
         if(this.allValidValuesForKeyMap.containsKey(key))
             return false;
         this.allValidValuesForKeyMap.put(key, new ArrayList<>());
@@ -148,7 +154,7 @@ public class TestCaseGeneratorUtil {
         return true;
     }
 
-    public void addTestCasesForAbsentKeys(List<String> keys, List<List<String>> possibleTestCases){
+    public void addTestCasesForAbsentKeys(List<String> keys, List<List<Object>> possibleTestCases){
         int min = Math.min(keys.size(), possibleTestCases.size());
         for(int i =0; i<min; i++){
             if(!this.allValidValuesForKeyMap.containsKey(keys.get(i))){
